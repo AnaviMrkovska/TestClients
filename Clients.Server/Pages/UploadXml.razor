@@ -1,0 +1,119 @@
+﻿@page "/UploadXml"
+@using Clients.Models
+@using Clients.Server.Service.IService
+@using System.Globalization
+@using MudBlazor
+@using Newtonsoft.Json
+@using static MudBlazor.CategoryTypes
+@inject IClientsService clientService
+@inject HttpClient httpClient
+@inject IJSRuntime JsRuntime
+@inject ISnackbar Snackbar
+@inject NavigationManager uriHelper
+
+<PageTitle>UploadFile</PageTitle>
+
+<h1>Please choose only one file to upload</h1>
+<br />
+<br />
+
+<MudFileUpload T="IBrowserFile" Accept=".xml" OnFilesChanged="@((InputFileChangeEventArgs args) => UploadFiles(args))" MaximumFileCount="100">
+    <ButtonTemplate>
+        <MudButton HtmlTag="label"
+                   Variant="Variant.Filled"
+                   Color="Color.Primary"
+                   StartIcon="@Icons.Material.Filled.CloudUpload"
+                   for="@context.Id">
+            Brouse only .xml files
+        </MudButton>
+    </ButtonTemplate>
+</MudFileUpload>
+
+@if (files != null)
+{
+    <MudList>
+        @foreach (var file in files)
+        {
+            <MudListItem Icon="@Icons.Material.Filled.AttachFile">
+                @file.Name <code>@file.Size bytes</code>
+            </MudListItem>
+        }
+    </MudList>
+}
+<MudButton Disabled="@_processing" OnClick="ProcessSomething" Variant="Variant.Filled" Color="MudBlazor.Color.Primary">
+    @if (_processing)
+    {
+        <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true" />
+        <MudText Class="ms-2">Processing</MudText>
+    }
+    else
+    {
+        <MudText>Submit</MudText>
+    }
+</MudButton>
+
+@code {
+    private bool _processing = false;
+    IList<IBrowserFile> files = new List<IBrowserFile>();
+    public ClientsImport doc { get; set; } = new ClientsImport();
+
+
+    private async void UploadFiles(InputFileChangeEventArgs e)
+    {
+        try
+        {
+            var buffers = new byte[e.File.Size];
+            Stream stream = e.File.OpenReadStream(maxAllowedSize: long.MaxValue);
+
+            files.Add(e.File);
+
+            byte[] bytes;
+            using (var memoryStream = new MemoryStream())
+            {
+                await stream.CopyToAsync(memoryStream);
+                bytes = memoryStream.ToArray();
+            }
+            var stringToDecode = Convert.ToBase64String(bytes);
+            doc.xml =  System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(stringToDecode));
+           
+        }
+        catch (Exception ex)
+        {
+            
+            Snackbar.Add("Something went wrong " + ex.Message, MudBlazor.Severity.Error);
+        }
+    }
+
+    async Task ProcessSomething()
+    {
+        try
+        {
+            if (files.Count() == 1)
+            {
+                _processing = true;
+
+                await clientService.InsertClientsFromXml(doc);
+
+                await Task.Delay(1000);
+                uriHelper.NavigateTo($"FetchData");            
+
+                _processing = false;
+            }
+            else if (files.Count() > 1)
+            {
+                files.Clear();
+                Snackbar.Add("Please choose only one file to upload", MudBlazor.Severity.Error);
+            }
+            else 
+            {
+                Snackbar.Add("Please attach .xml document", MudBlazor.Severity.Error);
+            }
+        }
+        catch(Exception ex)
+        {
+            Snackbar.Add("Something went wrong"+ex.Message, MudBlazor.Severity.Error);
+        }
+    }
+
+}
+

@@ -1,0 +1,86 @@
+﻿@page "/fetchdata"
+
+<PageTitle>Clients</PageTitle>
+
+@using Clients.Models
+@using Clients.Server.Service.IService
+@using System.Globalization
+@using MudBlazor
+@using Newtonsoft.Json
+@using static MudBlazor.CategoryTypes
+@inject IClientsService clientService
+@inject HttpClient httpClient
+@inject IJSRuntime JsRuntime
+
+<h1>List of all Clients</h1>
+
+<p>This component demonstrates fetching data from a service.</p>
+
+<MudGrid>
+   
+        <MudItem xs="12" >
+
+                <MudTable @ref="clientsTable" Items="@clients" Hover="true" SortLabel="Sort By"  RowsPerPage="10" Loading="@IsProcessing">
+                <ToolBarContent>
+                   
+                        <MudButton Size="@Size.Small" Variant="@Variant.Filled" Color="@Color.Primary" OnClick="@(()=> DownloadAsJson((IEnumerable<Clients>)clients))">DownloadAsJson</MudButton>
+                    <MudSpacer />
+                </ToolBarContent>
+
+                <HeaderContent>              
+                  
+                    <MudTh><MudTableSortLabel Enabled="@enabled" SortBy="new Func<Clients, object>(x=>x.ID)">Id</MudTableSortLabel></MudTh>
+                    <MudTh><MudTableSortLabel Enabled="@enabled" SortBy="new Func<Clients, object>(x=>x.Name)">Name</MudTableSortLabel></MudTh>
+                    <MudTh><MudTableSortLabel Enabled="@enabled" SortBy="new Func<Clients, object>(x=>x.BirthDate)">BirthDate</MudTableSortLabel></MudTh>
+                    <MudTh><MudTableSortLabel Enabled="@enabled" SortBy="new Func<Clients, object>(x=>x.AdressData)">AdressData</MudTableSortLabel></MudTh>
+                
+
+                </HeaderContent>
+                  <NoRecordsContent>
+                      <MudText>No rows</MudText>
+                  </NoRecordsContent>
+                  <RowTemplate>                   
+                    <MudTd Class="small-cell">@context.ID</MudTd>
+                    <MudTd Class="small-cell">@context.Name</MudTd>
+                    <MudTd Class="small-cell">@context.BirthDate.ToString("dd.MM.yyyy")</MudTd>
+                    <MudTd Class="small-cell">@context.AdressData</MudTd>
+                </RowTemplate>
+                <PagerContent>
+                        @if (clients.Count() > clientsTable.RowsPerPage)
+                    {
+                        <div class="d-flex flex-column align-center py-2">
+                            <MudPagination SelectedChanged="PageChanged" Size="Size.Small" Variant="Variant.Filled" Count="@((clientsTable.GetFilteredItemsCount() + clientsTable.RowsPerPage - 1) / clientsTable.RowsPerPage)" />
+                        </div>
+                    }
+                </PagerContent>
+            </MudTable>
+                
+    </MudItem>
+</MudGrid>
+
+
+@code {
+
+    private IEnumerable<Clients> clients = new List<Clients>();
+    private MudTable<Clients> clientsTable;    
+    private bool IsProcessing { get; set; } = false;
+    private bool enabled = true;
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        IsProcessing = true;
+        clients = await clientService.GetAllClients();
+        IsProcessing = false;
+    }
+    private async Task DownloadAsJson(IEnumerable<Clients> _clients)
+    {
+        var res = JsonConvert.SerializeObject(_clients);       
+        await JsRuntime.InvokeVoidAsync("DownloadAsJson", "Example",res);
+    }
+    
+    private void PageChanged(int i)
+    {
+        clientsTable.NavigateTo(i - 1);
+    }
+}
